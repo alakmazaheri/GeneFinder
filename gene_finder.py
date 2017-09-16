@@ -2,23 +2,18 @@
 """
 YOUR HEADER COMMENT HERE
 
-@author: YOUR NAME HERE
+@author: Ava Lakmazaheri
 
 """
-
 import random
 from amino_acids import aa, codons, aa_table   # you may find these useful
 from load import load_seq
-
 
 def shuffle_string(s):
     """Shuffles the characters in the input string
         NOTE: this is a helper function, you do not
         have to modify this in any way """
     return ''.join(random.sample(s, len(s)))
-
-# YOU WILL START YOUR IMPLEMENTATION FROM HERE DOWN ###
-
 
 def get_complement(nucleotide):
     """ Returns the complementary nucleotide
@@ -30,9 +25,10 @@ def get_complement(nucleotide):
     >>> get_complement('C')
     'G'
     """
-    # TODO: implement this
-    pass
-
+    nucl = ['A', 'C', 'G', 'T'];
+    comps = ['T', 'G', 'C', 'A'];
+    idx = nucl.index(nucleotide);
+    return comps[idx];
 
 def get_reverse_complement(dna):
     """ Computes the reverse complementary sequence of DNA for the specfied DNA
@@ -45,9 +41,14 @@ def get_reverse_complement(dna):
     >>> get_reverse_complement("CCGCGTTCA")
     'TGAACGCGG'
     """
-    # TODO: implement this
-    pass
-
+    reverse_seq = [];
+    seqlength = len(dna);
+    for i in range(seqlength):
+        comp = get_complement(dna[i]);
+        reverse_seq = [comp] + reverse_seq;
+    delimiter = '';
+    reverse_string = delimiter.join(reverse_seq);
+    return reverse_string
 
 def rest_of_ORF(dna):
     """ Takes a DNA sequence that is assumed to begin with a start
@@ -61,10 +62,52 @@ def rest_of_ORF(dna):
     'ATG'
     >>> rest_of_ORF("ATGAGATAGG")
     'ATGAGA'
+    >>> rest_of_ORF("ATGCATGAATGTAGATAGATGTGCCC")
+    'ATGCATGAATGTAGA'
+    >>> rest_of_ORF("ATGATG")
+    'ATGATG'
     """
-    # TODO: implement this
-    pass
+    start_codon = 'ATG';
+    stop_codons = ['TAG', 'TAA', 'TGA'];
 
+    try:
+        # GOAL: find the first start codon in frame
+        numinstances = dna.count(start_codon);              # find all instances of start codon
+        prev_idx = 0;
+        for i in range(numinstances):                       # for each instance...
+            atg_idx = dna.find(start_codon, prev_idx);      # find ATG
+            if(atg_idx % 3 == 0):                           # make sure it is in frame
+                start_idx = atg_idx;                        # if it is, count it as a start codon
+                break;                                      # we only care about the first start codon!
+            prev_idx = atg_idx + 3;
+        if (numinstances == 0):                             # if there is no instance of ATG, leave
+            return;
+
+        # GOAL: find the first stop codon in frame
+        dna_tail = dna[start_idx + len(start_codon):];      # look at dna string after start codon
+        contains_stop = False;                              # assume no stop codon until you find one
+
+        stop_idxs = [];
+        for c in stop_codons:                               # check for each type of stop codon
+            if c in dna_tail:                               # if this type shows up in the rest of the string
+                numinstances = dna_tail.count(c);           # well, make sure you account for each time the codon shows up
+                prev_idx = 0;                               # start looking for it at 0
+                for i in range(numinstances):               # for each instance...
+                    idx = dna_tail.find(c, prev_idx)        # find the start point
+                    if (idx % 3 == 0):                      # make sure it is in frame
+                        stop_idxs.append(idx);              # if it is, save the index as a place of a valid stop codon
+                        contains_stop = True;               # make sure we stop somewhere
+                    prev_idx = idx + 3;                     # when looking for other instances of the codon, look past here!
+                                                                # when you look for other types of stop codon, you should start back at 0
+        # If there is no stop codon, return the full string
+        if(contains_stop == False):
+            return dna[start_idx:];
+
+        # But, if there was a stop codon, return up to/not including it
+        first_stop = start_idx + len(start_codon) + min(stop_idxs); # idx w.r.t dna, not dna_tail
+        return dna[start_idx:first_stop]
+    except:
+        return;
 
 def find_all_ORFs_oneframe(dna):
     """ Finds all non-nested open reading frames in the given DNA
@@ -79,9 +122,15 @@ def find_all_ORFs_oneframe(dna):
     >>> find_all_ORFs_oneframe("ATGCATGAATGTAGATAGATGTGCCC")
     ['ATGCATGAATGTAGA', 'ATGTGCCC']
     """
-    # TODO: implement this
-    pass
-
+    start = 0;
+    all_orfs = [];
+    while(start < len(dna)):
+        o = rest_of_ORF(dna[start:])
+        if(o is None): # rest_of_ORF expects a start codon; if the string has no more start codons, stop
+            break;
+        start += (dna.find(o) + len(o));
+        all_orfs.append(o)
+    return all_orfs
 
 def find_all_ORFs(dna):
     """ Finds all non-nested open reading frames in the given DNA sequence in
@@ -96,9 +145,11 @@ def find_all_ORFs(dna):
     >>> find_all_ORFs("ATGCATGAATGTAG")
     ['ATGCATGAATGTAG', 'ATGAATGTAG', 'ATG']
     """
-    # TODO: implement this
-    pass
-
+    all_orfs = [];
+    for idxframe in range(3):
+        orf = find_all_ORFs_oneframe(dna[idxframe:]);
+        all_orfs.extend(orf);
+    return all_orfs;
 
 def find_all_ORFs_both_strands(dna):
     """ Finds all non-nested open reading frames in the given DNA sequence on both
@@ -109,9 +160,11 @@ def find_all_ORFs_both_strands(dna):
     >>> find_all_ORFs_both_strands("ATGCGAATGTAGCATCAAA")
     ['ATGCGAATG', 'ATGCTACATTCGCAT']
     """
-    # TODO: implement this
-    pass
-
+    all_orfs = [];
+    rcdna = get_reverse_complement(dna);
+    all_orfs.extend(find_all_ORFs(dna));
+    all_orfs.extend(find_all_ORFs(rcdna));
+    return all_orfs
 
 def longest_ORF(dna):
     """ Finds the longest ORF on both strands of the specified DNA and returns it
@@ -163,4 +216,11 @@ def gene_finder(dna):
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod()
+    doctest.run_docstring_examples(get_complement, globals())
+    doctest.run_docstring_examples(get_reverse_complement, globals())
+    doctest.run_docstring_examples(rest_of_ORF, globals())
+    doctest.run_docstring_examples(find_all_ORFs_oneframe, globals())
+    doctest.run_docstring_examples(find_all_ORFs, globals())
+    doctest.run_docstring_examples(find_all_ORFs_both_strands, globals())
+
+    #doctest.testmod()
